@@ -1,0 +1,1 @@
+import{B as a,A as t}from"./index-BhWXVc6w.js";function i(r){return a("/api/admin/user/list",r)}function p(r){return t("/api/admin/user/update",r)}function u(r){return a("/api/admin/reports",r)}function o(r,e,n){return t("/api/admin/report/handle",null,{params:{reportId:r,action:e,remark:n}})}export{i as g,o as h,u as r,p as u};
