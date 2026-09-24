@@ -8,6 +8,7 @@ import { MEDIA_TYPE, MEDIA_TYPE_LABEL, REPORT_TYPE, COLLECT_TYPE } from '@/const
 import { useUserStore } from '@/stores/user'
 import { useAuthGuard } from '@/utils/auth'
 import { formatTime, formatCount } from '@/utils/format'
+import { stateOf, countOf } from '@/utils/response'
 import CommentTree from '@/components/CommentTree.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
 import EmptyState from '@/components/EmptyState.vue'
@@ -67,8 +68,13 @@ async function loadStatus() {
       postApi.likeStatus(postId.value).catch(() => null),
       collectApi.status(COLLECT_TYPE.POST, postId.value).catch(() => null)
     ])
-    if (likeData && typeof likeData.liked === 'boolean') liked.value = likeData.liked
-    if (collectData && typeof collectData.collected === 'boolean') collected.value = collectData.collected
+    // 后端实际返回 {isLiked, likeCount} / {isCollected, collectCount}，stateOf 兼容两种命名
+    const s1 = stateOf(likeData, 'isLiked')
+    if (s1 !== undefined) liked.value = s1
+    const c1 = countOf(likeData, 'likeCount')
+    if (c1 !== undefined && post.value) post.value.likeCount = c1
+    const s2 = stateOf(collectData, 'isCollected')
+    if (s2 !== undefined) collected.value = s2
   } catch (e) {
     /* 忽略 */
   }
@@ -84,8 +90,10 @@ async function toggleLike() {
   try {
     const data = await postApi.like(postId.value)
     if (data) {
-      if (typeof data.liked === 'boolean') liked.value = data.liked
-      if (typeof data.likeCount === 'number') post.value.likeCount = data.likeCount
+      const s = stateOf(data, 'isLiked')
+      if (s !== undefined) liked.value = s
+      const c = countOf(data, 'likeCount')
+      if (c !== undefined) post.value.likeCount = c
     }
   } catch (e) {
     liked.value = prev
@@ -103,13 +111,15 @@ async function toggleCollect() {
   const prevCount = Number(post.value.collectCount || 0)
   try {
     const data = await collectApi.toggleCollectPost(postId.value)
-    if (data && typeof data.collected === 'boolean') {
-      collected.value = data.collected
+    const s = stateOf(data, 'isCollected')
+    if (s !== undefined) {
+      collected.value = s
     } else {
       collected.value = !prev
     }
-    if (data && typeof data.collectCount === 'number') {
-      post.value.collectCount = data.collectCount
+    const c = countOf(data, 'collectCount')
+    if (c !== undefined) {
+      post.value.collectCount = c
     } else {
       post.value.collectCount = collected.value ? prevCount + 1 : Math.max(0, prevCount - 1)
     }

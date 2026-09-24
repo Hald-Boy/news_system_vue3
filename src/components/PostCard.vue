@@ -7,6 +7,7 @@ import * as collectApi from '@/api/collect'
 import { MEDIA_TYPE, MEDIA_TYPE_LABEL } from '@/constants/enums'
 import { useAuthGuard } from '@/utils/auth'
 import { formatTime, formatCount } from '@/utils/format'
+import { stateOf, countOf } from '@/utils/response'
 
 const props = defineProps({
   /** 帖子对象：News（首页）或 PostCardVO（收藏/作品列表），兼容两者字段 */
@@ -73,8 +74,10 @@ async function toggleLike() {
   try {
     const data = await postApi.like(props.post.id)
     if (data) {
-      if (typeof data.liked === 'boolean') liked.value = data.liked
-      if (typeof data.likeCount === 'number') likeCount.value = data.likeCount
+      const s = stateOf(data, 'isLiked')
+      if (s !== undefined) liked.value = s
+      const c = countOf(data, 'likeCount')
+      if (c !== undefined) likeCount.value = c
     }
     emit('updated', { liked: liked.value, likeCount: likeCount.value })
   } catch (e) {
@@ -94,13 +97,15 @@ async function toggleCollect() {
   const prevCount = collectCount.value
   try {
     const data = await collectApi.toggleCollectPost(props.post.id)
-    if (data && typeof data.collected === 'boolean') {
-      collected.value = data.collected
+    const s = stateOf(data, 'isCollected')
+    if (s !== undefined) {
+      collected.value = s
     } else {
       collected.value = !prev
     }
-    if (data && typeof data.collectCount === 'number') {
-      collectCount.value = data.collectCount
+    const c = countOf(data, 'collectCount')
+    if (c !== undefined) {
+      collectCount.value = c
     } else {
       collectCount.value = collected.value ? prevCount + 1 : Math.max(0, prevCount - 1)
     }
