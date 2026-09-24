@@ -8,6 +8,7 @@ import { useUserStore } from '@/stores/user'
 import { useAuthGuard } from '@/utils/auth'
 import { avatarText } from '@/utils/auth'
 import { formatDate } from '@/utils/format'
+import { stateOf } from '@/utils/response'
 import PostCard from '@/components/PostCard.vue'
 import UserCard from '@/components/UserCard.vue'
 import PaginationBar from '@/components/PaginationBar.vue'
@@ -113,8 +114,10 @@ async function toggleFollow() {
   following.value = !prev
   try {
     const data = await followApi.follow(userId.value)
-    if (data && typeof data.following === 'boolean') following.value = data.following
-    if (data && typeof data.mutual === 'boolean') mutual.value = data.mutual
+    const s = stateOf(data, 'isFollowing')
+    if (s !== undefined) following.value = s
+    const m = stateOf(data, 'isMutual')
+    if (m !== undefined) mutual.value = m
     // 同步刷新粉丝数
     if (profile.value) {
       profile.value.fanCount = Math.max(0, Number(profile.value.fanCount || 0) + (following.value ? 1 : -1))

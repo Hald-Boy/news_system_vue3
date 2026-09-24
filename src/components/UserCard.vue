@@ -5,6 +5,7 @@ import * as followApi from '@/api/follow'
 import { useUserStore } from '@/stores/user'
 import { useAuthGuard } from '@/utils/auth'
 import { avatarText } from '@/utils/auth'
+import { stateOf } from '@/utils/response'
 
 const props = defineProps({
   /** UserCardVO：{ userInfo, isFollowing, isMutual } */
@@ -36,12 +37,10 @@ async function toggleFollow() {
   following.value = !prev
   try {
     const data = await followApi.follow(props.card.userInfo.id)
-    if (data && typeof data.following === 'boolean') {
-      following.value = data.following
-    }
-    if (data && typeof data.mutual === 'boolean') {
-      mutual.value = data.mutual
-    }
+    const s = stateOf(data, 'isFollowing')
+    if (s !== undefined) following.value = s
+    const m = stateOf(data, 'isMutual')
+    if (m !== undefined) mutual.value = m
     emit('updated', { following: following.value })
   } catch (e) {
     following.value = prev

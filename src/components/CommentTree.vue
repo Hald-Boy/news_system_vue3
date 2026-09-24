@@ -8,6 +8,7 @@ import { useUserStore } from '@/stores/user'
 import { useAuthGuard } from '@/utils/auth'
 import { avatarText } from '@/utils/auth'
 import { formatTime, formatCount } from '@/utils/format'
+import { stateOf, countOf } from '@/utils/response'
 import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
@@ -76,7 +77,10 @@ onMounted(() => {
 async function loadParents(page = 1) {
   parentLoading.value = true
   try {
-    const data = await commentApi.getAllComment({ id: props.newsId, pageNum: page, pageSize: parentSize })
+    // 登录后附带 currentUserId，后端用于返回评论的 liked 点赞状态（刷新后图标可恢复）
+    const params = { id: props.newsId, pageNum: page, pageSize: parentSize }
+    if (userStore.userId != null) params.currentUserId = userStore.userId
+    const data = await commentApi.getAllComment(params)
     parents.value = data.list || []
     parentTotal.value = data.total || 0
     parentPage.value = page
@@ -133,12 +137,14 @@ async function loadChildren(parent, page = 1) {
   if (state.loading) return
   state.loading = true
   try {
-    const data = await commentApi.getCommentChild({
+    const params = {
       newsId: props.newsId,
       parentId: parent.id,
       pageNum: page,
       pageSize: state.size
-    })
+    }
+    if (userStore.userId != null) params.currentUserId = userStore.userId
+    const data = await commentApi.getCommentChild(params)
     state.list = data.list || []
     state.total = data.total || 0
     state.page = page
@@ -230,8 +236,10 @@ async function likeComment(comment) {
   try {
     const data = await commentApi.commentLike(comment.id)
     if (data) {
-      if (typeof data.liked === 'boolean') comment.liked = data.liked
-      if (typeof data.likeCount === 'number') comment.likeCount = data.likeCount
+      const s = stateOf(data, 'isLiked')
+      if (s !== undefined) comment.liked = s
+      const c = countOf(data, 'likeCount')
+      if (c !== undefined) comment.likeCount = c
     }
   } catch (e) {
     comment.liked = prev
@@ -249,11 +257,8 @@ async function collectComment(comment) {
   const prev = comment.collected || false
   try {
     const data = await collectApi.toggleCollectComment(comment.id)
-    if (data && typeof data.collected === 'boolean') {
-      comment.collected = data.collected
-    } else {
-      comment.collected = !prev
-    }
+    const s = stateOf(data, 'isCollected')
+    comment.collected = s !== undefined ? s : !prev
     ElMessage.success(comment.collected ? '已收藏该评论' : '已取消收藏')
   } catch (e) {
     comment.collected = prev
