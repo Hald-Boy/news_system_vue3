@@ -4,18 +4,17 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as postApi from '@/api/post'
 import * as collectApi from '@/api/collect'
-import { MEDIA_TYPE, MEDIA_TYPE_LABEL } from '@/constants/enums'
+import { MEDIA_TYPE } from '@/constants/enums'
 import { useAuthGuard } from '@/utils/auth'
 import { formatTime, formatCount } from '@/utils/format'
+import { stateOf, countOf } from '@/utils/response'
+import { avatarText } from '@/utils/auth'
 
 const props = defineProps({
-  /** 帖子对象：News（首页）或 PostCardVO（收藏/作品列表），兼容两者字段 */
+  /** 帖子对象：News 或 PostCardVO */
   post: { type: Object, required: true },
-  /** 内容类型（可选）：News 自带 mediaType；PostCardVO 无该字段时按 cover 推断 */
   mediaType: { type: Number, default: null },
-  /** 是否显示"不感兴趣"按钮 */
   showDisinterest: { type: Boolean, default: false },
-  /** 是否显示收藏按钮 */
   showCollect: { type: Boolean, default: true }
 })
 
@@ -24,24 +23,23 @@ const emit = defineEmits(['disinterest', 'updated'])
 const router = useRouter()
 const requireLogin = useAuthGuard()
 
-// 点赞/收藏状态（列表接口不返回当前用户状态，点击后由本组件维护）
 const liked = ref(false)
 const collected = ref(false)
 const likeLoading = ref(false)
 const collectLoading = ref(false)
 const disinterestLoading = ref(false)
 
-const coverUrl = computed(() => props.post.cover || props.post.coverImageUrl || props.post.images?.[0]?.imageUrl || '')
+const coverUrl = computed(
+  () => props.post.cover || props.post.coverImageUrl || props.post.images?.[0]?.imageUrl || ''
+)
 
 const resolvedMediaType = computed(() => {
   if (props.mediaType != null) return props.mediaType
   if (props.post.mediaType != null) return props.post.mediaType
-  // PostCardVO 无 mediaType：有封面视为图文，无封面视为纯文字
   return coverUrl.value ? MEDIA_TYPE.IMAGE : MEDIA_TYPE.TEXT
 })
 
 const isText = computed(() => resolvedMediaType.value === MEDIA_TYPE.TEXT)
-const isVideo = computed(() => resolvedMediaType.value === MEDIA_TYPE.VIDEO)
 
 const likeCount = ref(Number(props.post.likeCount) || 0)
 const collectCount = ref(Number(props.post.collectCount) || 0)
@@ -58,11 +56,12 @@ watch(
   { immediate: true, deep: true }
 )
 
+const avatarUrl = computed(() => props.post.userAvatar || props.post.avatar || '')
+
 function goDetail() {
   router.push({ name: 'postDetail', params: { id: props.post.id } })
 }
 
-/** 点赞/取消点赞（乐观更新，失败回滚） */
 async function toggleLike() {
   if (!requireLogin()) return
   if (likeLoading.value) return
@@ -73,19 +72,20 @@ async function toggleLike() {
   try {
     const data = await postApi.like(props.post.id)
     if (data) {
-      if (typeof data.liked === 'boolean') liked.value = data.liked
-      if (typeof data.likeCount === 'number') likeCount.value = data.likeCount
+      const s = stateOf(data, 'isLiked')
+      if (typeof s === 'boolean') liked.value = s
+      const c = countOf(data, 'likeCount')
+      if (typeof c === 'number') likeCount.value = c
     }
     emit('updated', { liked: liked.value, likeCount: likeCount.value })
   } catch (e) {
     liked.value = prev
-    likeCount.value = prev ? likeCount.value + 1 : Math.max(0, likeCount.value - 1)
+    likeCount.value += prev ? 1 : -1
   } finally {
     likeLoading.value = false
   }
 }
 
-/** 收藏/取消收藏 */
 async function toggleCollect() {
   if (!requireLogin()) return
   if (collectLoading.value) return
@@ -94,13 +94,11 @@ async function toggleCollect() {
   const prevCount = collectCount.value
   try {
     const data = await collectApi.toggleCollectPost(props.post.id)
-    if (data && typeof data.collected === 'boolean') {
-      collected.value = data.collected
-    } else {
-      collected.value = !prev
-    }
-    if (data && typeof data.collectCount === 'number') {
-      collectCount.value = data.collectCount
+    const s = stateOf(data, 'isCollected')
+    collected.value = typeof s === 'boolean' ? s : !prev
+    const c = countOf(data, 'collectCount')
+    if (typeof c === 'number') {
+      collectCount.value = c
     } else {
       collectCount.value = collected.value ? prevCount + 1 : Math.max(0, prevCount - 1)
     }
@@ -114,7 +112,6 @@ async function toggleCollect() {
   }
 }
 
-/** 标记不感兴趣 */
 async function markDisinterest() {
   if (!requireLogin()) return
   if (disinterestLoading.value) return
@@ -132,139 +129,126 @@ async function markDisinterest() {
 </script>
 
 <template>
-  <div class="post-card clickable" @click="goDetail">
-    <div class="card-body">
-      <div class="card-info">
-        <div class="card-title-row">
-          <el-tag v-if="!isText" size="small" :type="isVideo ? 'danger' : 'primary'" effect="plain" class="type-tag">
-            {{ MEDIA_TYPE_LABEL[resolvedMediaType] }}
-          </el-tag>
-          <h3 class="card-title ellipsis-2">{{ post.title || '无标题' }}</h3>
-        </div>
-        <p v-if="post.content" class="card-summary ellipsis-2">{{ post.content }}</p>
-        <div class="card-meta">
-          <span class="author">{{ post.userName || '匿名用户' }}</span>
-          <span class="dot">·</span>
-          <span>{{ formatTime(post.createTime) }}</span>
-        </div>
-        <div class="card-actions" @click.stop>
-          <span class="icon-action" :class="{ active: liked }" @click="toggleLike">
-            <el-icon><Pointer /></el-icon>
-            <span>{{ formatCount(likeCount) }}</span>
-          </span>
-          <span class="icon-action" @click="goDetail">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>{{ formatCount(commentCount) }}</span>
-          </span>
-          <span v-if="showCollect" class="icon-action" :class="{ active: collected }" @click="toggleCollect">
-            <el-icon><CollectionTag /></el-icon>
-            <span>{{ formatCount(collectCount) }}</span>
-          </span>
-          <span v-if="showDisinterest" class="icon-action disinterest" title="不感兴趣" @click="markDisinterest">
-            <el-icon><Hide /></el-icon>
-          </span>
-        </div>
+  <article class="tweet clickable" @click="goDetail">
+    <el-avatar :size="40" :src="avatarUrl" class="tweet-avatar">
+      {{ avatarText(post.userName) }}
+    </el-avatar>
+
+    <div class="tweet-body">
+      <!-- 作者行 -->
+      <div class="tweet-author-row">
+        <span class="author-name ellipsis">{{ post.userName || '匿名用户' }}</span>
+        <span v-if="post.userAccount" class="author-handle ellipsis">@{{ post.userAccount }}</span>
+        <span class="tweet-time">· {{ formatTime(post.createTime) }}</span>
       </div>
-      <div v-if="!isText && coverUrl" class="card-cover" @click.stop="goDetail">
-        <el-image :src="coverUrl" fit="cover" class="cover-img" :preview-src-list="[coverUrl]" preview-teleported />
-        <div v-if="isVideo" class="video-mask">
-          <el-icon :size="26" color="#fff"><VideoPlay /></el-icon>
-        </div>
+
+      <!-- 标题 + 正文 -->
+      <h3 class="tweet-title ellipsis-2">{{ post.title || '无标题' }}</h3>
+      <p v-if="post.content" class="tweet-content ellipsis-2 rich-content">{{ post.content }}</p>
+
+      <!-- 封面媒体（纯文字不显示） -->
+      <div v-if="!isText && coverUrl" class="tweet-media" @click.stop="goDetail">
+        <el-image
+          :src="coverUrl"
+          fit="cover"
+          class="media-img"
+          :preview-src-list="[coverUrl]"
+          preview-teleported
+        />
+      </div>
+
+      <!-- 操作行 -->
+      <div class="tweet-actions" @click.stop>
+        <span class="icon-action" @click="goDetail">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>{{ formatCount(commentCount) }}</span>
+        </span>
+        <span class="icon-action" :class="{ active: liked }" @click="toggleLike">
+          <el-icon><Pointer /></el-icon>
+          <span>{{ formatCount(likeCount) }}</span>
+        </span>
+        <span v-if="showCollect" class="icon-action collect" :class="{ active: collected }" @click="toggleCollect">
+          <el-icon><CollectionTag /></el-icon>
+          <span>{{ formatCount(collectCount) }}</span>
+        </span>
+        <span v-if="showDisinterest" class="icon-action" title="不感兴趣" @click="markDisinterest">
+          <el-icon><CircleClose /></el-icon>
+        </span>
       </div>
     </div>
-  </div>
+  </article>
 </template>
 
 <style scoped>
-.post-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px 18px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 4px rgba(31, 35, 41, 0.05);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-.post-card:hover {
-  box-shadow: 0 4px 16px rgba(31, 35, 41, 0.1);
-}
-.card-body {
+.tweet {
   display: flex;
-  gap: 16px;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--x-border);
 }
-.card-info {
+.tweet:hover {
+  background: rgba(15, 20, 25, 0.02);
+}
+.tweet-avatar {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #1d9bf0, #7ec8ff);
+}
+.tweet-body {
   flex: 1;
   min-width: 0;
 }
-.card-title-row {
+.tweet-author-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 4px;
+  font-size: 15px;
 }
-.type-tag {
-  flex-shrink: 0;
+.author-name {
+  font-weight: 700;
+  max-width: 160px;
 }
-.card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2329;
+.author-handle {
+  color: var(--x-text-2);
+  max-width: 120px;
+}
+.tweet-time {
+  color: var(--x-text-2);
+}
+.tweet-title {
+  font-size: 15px;
+  font-weight: 700;
   line-height: 1.4;
+  margin-top: 2px;
 }
-.card-title:hover {
-  color: #4f7cff;
+.tweet-content {
+  font-size: 15px;
+  color: var(--x-text);
+  margin-top: 2px;
 }
-.card-summary {
-  color: #6b7280;
-  font-size: 13px;
-  line-height: 1.6;
-  margin-bottom: 10px;
-}
-.card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #a3a8b0;
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-.card-meta .author {
-  color: #4e5969;
-  font-weight: 500;
-}
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  font-size: 13px;
-}
-.disinterest {
-  margin-left: auto;
-}
-.card-cover {
-  width: 168px;
-  height: 104px;
-  border-radius: 8px;
+.tweet-media {
+  margin-top: 8px;
+  border-radius: 16px;
   overflow: hidden;
-  position: relative;
-  flex-shrink: 0;
+  border: 1px solid var(--x-border);
 }
-.cover-img {
+.media-img {
   width: 100%;
-  height: 100%;
+  max-height: 300px;
   display: block;
 }
-.video-mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+.tweet-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  max-width: 420px;
+  margin-top: 8px;
 }
-@media (max-width: 768px) {
-  .card-cover {
-    width: 112px;
-    height: 76px;
-  }
+/* 收藏激活：X 绿 */
+.tweet-actions .icon-action.collect.active {
+  color: var(--x-green);
+}
+.tweet-actions .icon-action.collect.active:hover {
+  color: var(--x-green);
+  background: rgba(0, 186, 124, 0.1);
 }
 </style>
