@@ -1,12 +1,18 @@
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import AppHeader from '@/components/AppHeader.vue'
+import XSidebar from '@/components/XSidebar.vue'
+import XWidgets from '@/components/XWidgets.vue'
 
 const userStore = useUserStore()
+const route = useRoute()
+
+/** 登录/注册等全屏页：不渲染三栏 */
+const isBare = computed(() => !!route.meta.guestOnly)
 
 onMounted(async () => {
-  // 刷新页面后恢复登录态：有 token 则拉取用户信息与未读数
+  // 刷新页面后恢复登录态
   if (userStore.token) {
     const info = await userStore.fetchInfo()
     if (info) {
@@ -17,28 +23,56 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="app-shell">
-    <AppHeader />
-    <main class="app-main">
+  <!-- 全屏页（登录/注册） -->
+  <router-view v-if="isBare" />
+
+  <!-- X 三栏 shell -->
+  <div v-else class="x-shell">
+    <XSidebar />
+
+    <main class="x-center">
+      <!-- sticky 页头 -->
+      <div class="x-topbar">
+        <h1 class="topbar-title">{{ route.meta.title || '世界社区' }}</h1>
+      </div>
+
       <router-view />
     </main>
-    <footer class="app-footer">世界社区 · 连接每一个热爱分享的人</footer>
+
+    <XWidgets />
   </div>
 </template>
 
 <style scoped>
-.app-shell {
-  min-height: 100%;
+.x-shell {
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
 }
-.app-main {
+.x-center {
   flex: 1;
+  max-width: 600px;
+  min-height: 100vh;
+  border-left: 1px solid var(--x-border);
+  border-right: 1px solid var(--x-border);
 }
-.app-footer {
-  text-align: center;
-  padding: 24px 0 32px;
-  color: #a3a8b0;
-  font-size: 13px;
+.x-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--x-border);
+  padding: 14px 16px;
+}
+.topbar-title {
+  font-size: 19px;
+  font-weight: 800;
+}
+@media (max-width: 1200px) {
+  .x-center {
+    border-left: none;
+  }
 }
 </style>
