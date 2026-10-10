@@ -75,6 +75,14 @@ function onCommand(cmd) {
   else if (cmd === 'logout') handleLogout()
 }
 
+/** 点击底部头像/昵称直接跳自己的个人主页 */
+function goMyProfile() {
+  const id = userStore.userId
+  if (id != null) {
+    router.push({ name: 'userProfile', params: { id } })
+  }
+}
+
 async function handleLogout() {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
@@ -142,8 +150,9 @@ async function handleLogout() {
 
       <!-- 底部：用户卡片 / 登录注册 -->
       <div v-if="isLoggedIn" class="me-entry">
-        <el-dropdown trigger="click" @command="onCommand" class="me-dropdown">
-          <div class="me-card clickable">
+        <div class="me-card">
+          <!-- 头像 + 昵称：点击直接跳个人主页 -->
+          <div class="me-main clickable" @click="goMyProfile">
             <el-avatar :size="40" :src="user.avatar" class="me-avatar">
               {{ avatarText(user.username) }}
             </el-avatar>
@@ -151,16 +160,21 @@ async function handleLogout() {
               <div class="me-name ellipsis">{{ user.username || '未设置昵称' }}</div>
               <div class="me-handle ellipsis">@{{ user.userAccount || 'user' }}</div>
             </div>
-            <el-icon class="me-more"><MoreFilled /></el-icon>
           </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="my">我的设置</el-dropdown-item>
-              <el-dropdown-item v-if="isAdmin" divided command="admin">管理后台</el-dropdown-item>
-              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+          <!-- 三个点：我的设置 / 管理后台 / 退出登录 -->
+          <el-dropdown trigger="click" @command="onCommand" class="me-more-drop" :hide-on-click="true">
+            <span class="me-more clickable" @click.stop>
+              <el-icon><MoreFilled /></el-icon>
+            </span>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="my">我的设置</el-dropdown-item>
+                <el-dropdown-item v-if="isAdmin" divided command="admin">管理后台</el-dropdown-item>
+                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
       </div>
       <div v-else class="guest-box">
         <el-button type="primary" size="large" round class="guest-btn" @click="goLogin">登录</el-button>
@@ -255,13 +269,22 @@ async function handleLogout() {
 .me-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 6px 8px;
   border-radius: 999px;
   width: 100%;
 }
 .me-card:hover {
   background: var(--x-hover);
+}
+.me-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 4px;
+  border-radius: 999px;
 }
 .me-avatar {
   flex-shrink: 0;
@@ -281,7 +304,16 @@ async function handleLogout() {
   color: var(--x-text-2);
 }
 .me-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
   color: var(--x-text-2);
+}
+.me-more:hover {
+  background: rgba(15, 20, 25, 0.08);
 }
 .guest-box {
   display: flex;

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as userApi from '@/api/user'
 import * as followApi from '@/api/follow'
+import * as collectApi from '@/api/collect'
 import { useUserStore } from '@/stores/user'
 import { useAuthGuard } from '@/utils/auth'
 import { avatarText } from '@/utils/auth'
@@ -15,7 +16,8 @@ import PaginationBar from '@/components/PaginationBar.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
 /**
- * 个人主页：信息卡片 + 关注/取关 + 作品/关注/粉丝三个 Tab（均分页）
+ * 个人主页：信息卡片 + 关注/取关
+ * 列表区："作品 / 我的收藏(仅自己)"并列切换；点击资料卡上的"关注/粉丝"数字查看对应列表
  */
 const route = useRoute()
 const userStore = useUserStore()
@@ -29,13 +31,21 @@ const followLoading = ref(false)
 const following = ref(false)
 const mutual = ref(false)
 
+/** 当前列表类型：posts | collect | following | fans */
 const activeTab = ref('posts')
+const listRef = ref(null)
 
 // 作品列表
 const posts = ref([])
 const postsTotal = ref(0)
 const postsPage = ref(1)
 const postsLoading = ref(false)
+
+// 我的收藏（帖子，仅自己可见）
+const collects = ref([])
+const collectsTotal = ref(0)
+const collectsPage = ref(1)
+const collectsLoading = ref(false)
 
 // 关注/粉丝列表
 const userList = ref([])
@@ -45,6 +55,13 @@ const userLoading = ref(false)
 const pageSize = 10
 
 const isSelf = computed(() => userStore.userId === userId.value)
+
+/** 当前列表的 loading 状态 */
+const listLoading = computed(() => {
+  if (activeTab.value === 'posts') return postsLoading.value
+  if (activeTab.value === 'collect') return collectsLoading.value
+  return userLoading.value
+})
 
 async function loadProfile() {
   loading.value = true
@@ -89,17 +106,40 @@ async function loadUsers(page = 1) {
   }
 }
 
-function onTabChange() {
-  if (activeTab.value === 'posts') {
+/** 我的收藏（帖子列表） */
+async function loadCollects(page = 1) {
+  collectsLoading.value = true
+  try {
+    const data = await collectApi.minePosts({ pageNum: page, pageSize })
+    collects.value = data.list || []
+    collectsTotal.value = data.total || 0
+    collectsPage.value = page
+  } catch (e) {
+    /* 拦截器已提示 */
+  } finally {
+    collectsLoading.value = false
+  }
+}
+
+/** 点击资料卡数字/并列 Tab 切换列表 */
+function switchList(tab) {
+  if (tab === activeTab.value) return
+  activeTab.value = tab
+  if (tab === 'posts') {
     loadPosts(1)
+  } else if (tab === 'collect') {
+    loadCollects(1)
   } else {
     loadUsers(1)
   }
+  listRef.value?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
 
 function onListPageChange({ page }) {
   if (activeTab.value === 'posts') {
     loadPosts(page)
+  } else if (activeTab.value === 'collect') {
+    loadCollects(page)
   } else {
     loadUsers(page)
   }
@@ -169,8 +209,22 @@ loadPosts(1)
               </div>
               <div class="profile-stats">
                 <div class="stat"><b>{{ profile.totalLikeCount || 0 }}</b><span>获赞</span></div>
-                <div class="stat"><b>{{ profile.followCount || 0 }}</b><span>关注</span></div>
-                <div class="stat"><b>{{ profile.fanCount || 0 }}</b><span>粉丝</span></div>
+                <div
+                  class="stat clickable"
+                  :class="{ active: activeTab === 'following' }"
+                  title="查看关注列表"
+                  @click="switchList('following')"
+                >
+                  <b>{{ profile.followCount || 0 }}</b><span>关注</span>
+                </div>
+                <div
+                  class="stat clickable"
+                  :class="{ active: activeTab === 'fans' }"
+                  title="查看粉丝列表"
+                  @click="switchList('fans')"
+                >
+                  <b>{{ profile.fanCount || 0 }}</b><span>粉丝</span>
+                </div>
               </div>
             </div>
             <div class="profile-actions">
@@ -191,19 +245,34 @@ loadPosts(1)
           </div>
         </div>
 
-        <!-- Tab：作品 / 关注 / 粉丝 -->
-        <div class="app-card tabs-card">
-          <el-tabs v-model="activeTab" @tab-change="onTabChange">
-            <el-tab-pane :label="`作品 ${profile.postCount ?? ''}`" name="posts" />
-            <el-tab-pane label="关注" name="following" />
-            <el-tab-pane label="粉丝" name="fans" />
-          </el-tabs>
+        <!-- 列表区：作品/我的收藏(仅自己)并列；点击资料卡"关注/粉丝"数字切换 -->
+        <div ref="listRef" class="app-card tabs-card">
+          <div class="list-header">
+            <div class="list-tabs">
+              <span class="list-tab" :class="{ active: activeTab === 'posts' }" @click="switchList('posts')">
+                作品{{ profile.postCount != null ? ` ${profile.postCount}` : '' }}
+              </span>
+              <span
+                v-if="isSelf"
+                class="list-tab"
+                :class="{ active: activeTab === 'collect' }"
+                @click="switchList('collect')"
+              >
+                我的收藏
+              </span>
+            </div>
+          </div>
 
-          <div v-loading="activeTab === 'posts' ? postsLoading : userLoading">
+          <div v-loading="listLoading">
             <template v-if="activeTab === 'posts'">
               <PostCard v-for="post in posts" :key="post.id" :post="post" />
               <EmptyState v-if="!postsLoading && !posts.length" text="还没有发布过作品" />
               <PaginationBar :total="postsTotal" :page-num="postsPage" :page-size="pageSize" @change="onListPageChange" />
+            </template>
+            <template v-else-if="activeTab === 'collect'">
+              <PostCard v-for="post in collects" :key="post.id" :post="post" :show-collect="false" />
+              <EmptyState v-if="!collectsLoading && !collects.length" text="还没有收藏任何帖子" icon="Collection" />
+              <PaginationBar :total="collectsTotal" :page-num="collectsPage" :page-size="pageSize" @change="onListPageChange" />
             </template>
             <template v-else>
               <UserCard v-for="card in userList" :key="card.userInfo.id" :card="card" />
@@ -296,6 +365,22 @@ loadPosts(1)
   flex-direction: column;
   align-items: center;
 }
+.stat.clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin: -4px -10px;
+  transition: background 0.15s;
+}
+.stat.clickable:hover {
+  background: rgba(79, 124, 255, 0.08);
+}
+.stat.clickable.active {
+  color: #4f7cff;
+}
+.stat.clickable.active b {
+  color: #4f7cff;
+}
 .stat b {
   font-size: 17px;
   color: #1f2329;
@@ -311,5 +396,33 @@ loadPosts(1)
 }
 .tabs-card {
   padding: 8px 24px 20px;
+}
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 0;
+  margin-bottom: 4px;
+}
+.list-tabs {
+  display: flex;
+  gap: 28px;
+}
+.list-tab {
+  font-size: 16px;
+  font-weight: 600;
+  color: #8a9099;
+  cursor: pointer;
+  padding: 10px 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s;
+}
+.list-tab:hover {
+  color: #1f2329;
+}
+.list-tab.active {
+  color: #1f2329;
+  font-weight: 700;
+  border-bottom-color: #4f7cff;
 }
 </style>

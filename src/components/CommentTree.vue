@@ -1,5 +1,6 @@
 <script setup>
 import { computed, reactive, ref, nextTick, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as commentApi from '@/api/comment'
 import * as collectApi from '@/api/collect'
@@ -25,8 +26,16 @@ const props = defineProps({
 
 const emit = defineEmits(['countChange'])
 
+const router = useRouter()
 const userStore = useUserStore()
 const requireLogin = useAuthGuard()
+
+/** 跳评论作者个人主页 */
+function goUser(comment) {
+  const id = comment.userId
+  if (!id) return
+  router.push({ name: 'userProfile', params: { id } })
+}
 
 // ---------- 一级评论 ----------
 const parents = ref([])
@@ -357,12 +366,12 @@ const isOwn = (comment) => comment.userId === userStore.userId
     <div v-loading="parentLoading" class="comment-list">
       <template v-if="parents.length">
         <div v-for="comment in parents" :key="comment.id" class="comment-item parent">
-          <el-avatar :size="38" :src="comment.avatar" class="comment-avatar">
+          <el-avatar :size="38" :src="comment.avatar" class="comment-avatar clickable" @click.stop="goUser(comment)">
             {{ avatarText(comment.username) }}
           </el-avatar>
           <div class="comment-main">
             <div class="comment-head">
-              <span class="comment-user">{{ comment.username || '用户' }}</span>
+              <span class="comment-user clickable" @click.stop="goUser(comment)">{{ comment.username || '用户' }}</span>
               <span v-if="comment.userId === userStore.userId" class="own-tag">我</span>
             </div>
 
@@ -410,12 +419,12 @@ const isOwn = (comment) => comment.userId === userStore.userId
               <template v-else>
                 <div v-loading="childMap[comment.id]?.loading" class="children-list">
                   <div v-for="child in childMap[comment.id]?.list || []" :key="child.id" class="comment-item child">
-                    <el-avatar :size="30" :src="child.avatar" class="comment-avatar">
+                    <el-avatar :size="30" :src="child.avatar" class="comment-avatar clickable" @click.stop="goUser(child)">
                       {{ avatarText(child.username) }}
                     </el-avatar>
                     <div class="comment-main">
                       <div class="comment-head">
-                        <span class="comment-user">{{ child.username || '用户' }}</span>
+                        <span class="comment-user clickable" @click.stop="goUser(child)">{{ child.username || '用户' }}</span>
                         <span v-if="child.toUserName" class="reply-to">回复 @{{ child.toUserName }}</span>
                         <span v-if="child.userId === userStore.userId" class="own-tag">我</span>
                       </div>
@@ -543,6 +552,13 @@ const isOwn = (comment) => comment.userId === userStore.userId
   font-weight: 600;
   font-size: 14px;
   color: #1f2329;
+}
+.comment-avatar.clickable,
+.comment-user.clickable {
+  cursor: pointer;
+}
+.comment-user.clickable:hover {
+  text-decoration: underline;
 }
 .reply-to {
   color: #4f7cff;

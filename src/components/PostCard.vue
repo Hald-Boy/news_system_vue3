@@ -62,6 +62,13 @@ function goDetail() {
   router.push({ name: 'postDetail', params: { id: props.post.id } })
 }
 
+/** 跳作者个人主页（头像/昵称点击，需阻止卡片整体跳详情的冒泡） */
+function goUser() {
+  const id = props.post.userId
+  if (!id) return
+  router.push({ name: 'userProfile', params: { id } })
+}
+
 async function toggleLike() {
   if (!requireLogin()) return
   if (likeLoading.value) return
@@ -130,15 +137,15 @@ async function markDisinterest() {
 
 <template>
   <article class="tweet clickable" @click="goDetail">
-    <el-avatar :size="40" :src="avatarUrl" class="tweet-avatar">
+    <el-avatar :size="40" :src="avatarUrl" class="tweet-avatar clickable" @click.stop="goUser">
       {{ avatarText(post.userName) }}
     </el-avatar>
 
     <div class="tweet-body">
       <!-- 作者行 -->
       <div class="tweet-author-row">
-        <span class="author-name ellipsis">{{ post.userName || '匿名用户' }}</span>
-        <span v-if="post.userAccount" class="author-handle ellipsis">@{{ post.userAccount }}</span>
+        <span class="author-name ellipsis clickable" @click.stop="goUser">{{ post.userName || '匿名用户' }}</span>
+        <span v-if="post.userAccount" class="author-handle ellipsis clickable" @click.stop="goUser">@{{ post.userAccount }}</span>
         <span class="tweet-time">· {{ formatTime(post.createTime) }}</span>
       </div>
 
@@ -210,6 +217,14 @@ async function markDisinterest() {
 .author-handle {
   color: var(--x-text-2);
   max-width: 120px;
+}
+.tweet-avatar.clickable,
+.author-name.clickable,
+.author-handle.clickable {
+  cursor: pointer;
+}
+.author-name.clickable:hover {
+  text-decoration: underline;
 }
 .tweet-time {
   color: var(--x-text-2);
