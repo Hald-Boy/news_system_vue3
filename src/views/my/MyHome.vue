@@ -2,10 +2,9 @@
 import { useRoute, useRouter } from 'vue-router'
 import { computed } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { avatarText } from '@/utils/auth'
 
 /**
- * 我的页面布局：左侧菜单 + 右侧内容（嵌套路由）
+ * 我的页面布局（设置中心）：左侧菜单 + 右侧内容（嵌套路由）
  */
 const route = useRoute()
 const router = useRouter()
@@ -30,18 +29,9 @@ function onSelect(path) {
   <div class="page-container my-page">
     <div class="my-layout">
       <aside class="my-aside app-card">
-        <div class="aside-user">
-          <el-avatar :size="52" :src="userStore.userInfo?.avatar" class="aside-avatar">
-            {{ avatarText(userStore.userInfo?.username) }}
-          </el-avatar>
-          <div class="aside-user-info">
-            <p class="aside-name ellipsis">{{ userStore.userInfo?.username || '未设置昵称' }}</p>
-            <p class="aside-sub">{{ userStore.userInfo?.phone || '' }}</p>
-          </div>
-        </div>
         <el-menu :default-active="activeMenu" class="aside-menu" @select="onSelect">
           <el-menu-item index="/my/profile">
-            <el-icon><User /></el-icon><span>个人资料</span>
+            <el-icon><User /></el-icon><span>设置</span>
           </el-menu-item>
           <el-menu-item index="/my/collect">
             <el-icon><Collection /></el-icon><span>我的收藏</span>
@@ -84,30 +74,6 @@ function onSelect(path) {
   padding: 16px 10px;
   position: sticky;
   top: 76px;
-}
-.aside-user {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px 16px;
-  border-bottom: 1px solid #f2f3f5;
-  margin-bottom: 8px;
-}
-.aside-avatar {
-  background: linear-gradient(135deg, #4f7cff, #7aa2ff);
-  flex-shrink: 0;
-}
-.aside-user-info {
-  min-width: 0;
-}
-.aside-name {
-  font-weight: 600;
-  font-size: 14px;
-}
-.aside-sub {
-  font-size: 12px;
-  color: #a3a8b0;
-  margin-top: 2px;
 }
 .aside-menu {
   border-right: none;

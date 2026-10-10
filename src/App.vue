@@ -2,6 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { initTheme } from '@/utils/theme'
 import XSidebar from '@/components/XSidebar.vue'
 import XWidgets from '@/components/XWidgets.vue'
 
@@ -12,6 +13,8 @@ const route = useRoute()
 const isBare = computed(() => !!route.meta.guestOnly)
 
 onMounted(async () => {
+  // 恢复日间/夜间主题
+  initTheme()
   // 刷新页面后恢复登录态
   if (userStore.token) {
     const info = await userStore.fetchInfo()
@@ -61,7 +64,7 @@ onMounted(async () => {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--x-topbar-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--x-border);
   padding: 14px 16px;

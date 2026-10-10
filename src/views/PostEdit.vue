@@ -73,10 +73,11 @@ function validate() {
 
 function buildFormData() {
   const fd = new FormData()
-  // news 字段传 JSON 字符串
+  // news 字段传 JSON：后端 @RequestPart NewsDTO 用 Jackson 反序列化，
+  // 必须把 part 的 Content-Type 设为 application/json（否则 Tomcat 默认 octet-stream 导致 415）
   const news = { title: form.title.trim(), content: form.content.trim() }
   if (isEdit.value) news.id = editId.value
-  fd.append('news', JSON.stringify(news))
+  fd.append('news', new Blob([JSON.stringify(news)], { type: 'application/json' }), 'news.json')
   // newImages：新增图片文件
   images.value.forEach((item) => {
     if (item.file) {

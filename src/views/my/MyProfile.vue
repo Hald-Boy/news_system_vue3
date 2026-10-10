@@ -3,12 +3,20 @@ import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as userApi from '@/api/user'
 import { useUserStore } from '@/stores/user'
+import { getTheme, toggleTheme } from '@/utils/theme'
 
 /**
- * 编辑个人资料（昵称/头像/背景/简介/生日/所在地）
+ * 设置-编辑个人资料（昵称/头像/背景/简介/生日/所在地）
  * 说明：接口文档未提供独立图片上传接口，头像/背景以图片 URL 填写（缺口清单中已注明）
  */
 const userStore = useUserStore()
+
+const theme = ref(getTheme())
+
+function onToggleTheme() {
+  theme.value = toggleTheme()
+  ElMessage.success(theme.value === 'dark' ? '已切换到夜间模式' : '已切换到日间模式')
+}
 
 const form = reactive({
   id: userStore.userId,
@@ -55,8 +63,14 @@ function submit() {
 
 <template>
   <div class="app-card section-card">
-    <h3 class="section-title">个人资料</h3>
+    <h3 class="section-title">设置</h3>
     <el-form label-width="90px" class="profile-form">
+      <el-form-item label="外观">
+        <el-button plain round @click="onToggleTheme">
+          {{ theme === 'dark' ? '切换为日间模式' : '切换为夜间模式' }}
+        </el-button>
+        <span class="theme-hint">夜间模式为暗黑主题，切换后全局立即生效</span>
+      </el-form-item>
       <el-form-item label="昵称">
         <el-input v-model="form.username" maxlength="20" show-word-limit placeholder="给自己起个好记的昵称" />
       </el-form-item>
@@ -111,6 +125,11 @@ function submit() {
 }
 .profile-form {
   max-width: 560px;
+}
+.theme-hint {
+  font-size: 12px;
+  color: #8a9099;
+  margin-left: 10px;
 }
 .preview-avatar {
   background: linear-gradient(135deg, #4f7cff, #7aa2ff);

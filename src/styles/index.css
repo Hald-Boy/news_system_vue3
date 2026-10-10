@@ -10,6 +10,86 @@
   --x-green: #00ba7c;
   --x-black: #0f1419;
   --x-hover: rgba(15, 20, 25, 0.06);
+  --x-topbar-bg: rgba(255, 255, 255, 0.85);
+}
+
+/* ========== 夜间模式（暗黑主题） ========== */
+html.dark {
+  --x-bg: #000000;
+  --x-bg-subtle: #16181c;
+  --x-border: #2f3336;
+  --x-text: #e7e9ea;
+  --x-text-2: #71767b;
+  --x-blue: #1d9bf0;
+  --x-pink: #f91880;
+  --x-green: #00ba7c;
+  /* 发布按钮：日间黑底白字 → 夜间白底黑字 */
+  --x-black: #e7e9ea;
+  --x-hover: rgba(231, 233, 234, 0.08);
+  --x-topbar-bg: rgba(0, 0, 0, 0.85);
+}
+
+/* 夜间全局兜底：主要布局与高频硬编码色 */
+html.dark body {
+  background: #000;
+}
+html.dark .x-topbar {
+  background: var(--x-topbar-bg);
+}
+html.dark .app-card {
+  background: #16181c;
+}
+html.dark .el-menu {
+  --el-menu-bg-color: transparent;
+  --el-menu-text-color: var(--x-text);
+  --el-menu-hover-bg-color: var(--x-hover);
+  --el-menu-active-color: var(--x-blue);
+}
+
+/* 夜间兜底：自定义组件的硬编码色（scoped 样式优先级更高，这里统一加 !important） */
+html.dark .app-card,
+html.dark .comment-card,
+html.dark .profile-card,
+html.dark .section-card {
+  background: #16181c !important;
+}
+html.dark .list-tab,
+html.dark .stat span,
+html.dark .comment-meta,
+html.dark .profile-bio,
+html.dark .profile-extra,
+html.dark .theme-hint,
+html.dark .author-handle,
+html.dark .tweet-time,
+html.dark .empty-text {
+  color: var(--x-text-2) !important;
+}
+html.dark .list-tab.active,
+html.dark .stat b,
+html.dark .profile-name,
+html.dark .comment-user,
+html.dark .comment-content,
+html.dark .section-title,
+html.dark .me-name,
+html.dark .post-title,
+html.dark .tweet-title,
+html.dark .notice-content,
+html.dark .topbar-title {
+  color: var(--x-text) !important;
+}
+html.dark .stat.clickable.active {
+  color: var(--x-blue) !important;
+}
+html.dark .stat.clickable.active b {
+  color: var(--x-blue) !important;
+}
+html.dark .list-header,
+html.dark .post-wrap .post-extra,
+html.dark .divider {
+  border-color: var(--x-border) !important;
+}
+html.dark .el-avatar {
+  --el-avatar-bg-color: #2f3336;
 }
 
 * {
